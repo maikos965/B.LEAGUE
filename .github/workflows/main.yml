@@ -2,14 +2,15 @@ name: B-League Transfer Bot
 
 on:
   schedule:
-    - cron: '0 * * * *' # 毎時0分に実行
-  workflow_dispatch: # GitHubの画面から手動で実行できるボタンを表示
+    # 💡 改善点1: 毎時「0分」は世界中のBotが集中して遅延するため、「11分」にずらします
+    - cron: '3 * * * *' 
+  workflow_dispatch: # 手動実行ボタン
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 実行後、通知履歴(txt)を上書き保存する権限
+      contents: write 
 
     steps:
     - name: リポジトリのコードを取得
@@ -21,11 +22,12 @@ jobs:
         python-version: '3.10'
 
     - name: 必要なライブラリのインストール
+      # 💡 注意: まだ現在のプログラムがBeautifulSoupを必要としているため残しています。
+      # API版に完全移行した後は、ここを `pip install requests` だけにします！
       run: pip install requests beautifulsoup4
 
     - name: Botの実行
       env:
-        # ここで金庫(Secrets)のURLを取り出し、環境変数として渡す
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       run: python bleague_bot.py
 
@@ -34,4 +36,12 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git add notified_urls.txt
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Update notified_urls.txt" && git pull --rebase origin main && git push)
+        
+        # 💡 改善点2: Gitの保存処理をスッキリさせ、エラーによる停止を防ぎます
+        if ! git diff --cached --quiet; then
+          git commit -m "Update notified_urls.txt"
+          git pull --rebase origin main
+          git push origin main
+        else
+          echo "変更がないため、プッシュをスキップしました。"
+        fi
